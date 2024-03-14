@@ -1,4 +1,4 @@
-from base64 import b64encode
+from base64 import b64encode, b64decode
 
 import uvicorn
 from cryptography.hazmat.primitives import hashes, serialization
@@ -16,25 +16,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+super_secret_challenge = b"potato is not a tomato but a potato indeed"
+
 
 @app.get("/challenge")
 async def send_challenge() -> str:
     with open("test.pub", "rb") as key_file:
-        public_key: rsa.RSAPublicKey = serialization.load_ssh_public_key(
+        public_key = serialization.load_ssh_public_key(
             key_file.read(),
         )
-        encrypted_challenge = public_key.encrypt(
-            b"potato is not a tomato but a potato indeed",
-            padding.OAEP(
-                mgf=padding.MGF1(
-                    hashes.SHA256(),
-                ),
-                algorithm=hashes.SHA256(),
-                label=None,
+        assert isinstance(public_key, rsa.RSAPublicKey)
+
+    encrypted_challenge = public_key.encrypt(
+        super_secret_challenge,
+        padding.OAEP(
+            mgf=padding.MGF1(
+                hashes.SHA256(),
             ),
-        )
-        print(encrypted_challenge)
+            algorithm=hashes.SHA256(),
+            label=None,
+        ),
+    )
+
     return b64encode(encrypted_challenge).decode()
+
+
+@app.post("/auth")
+async def auth(decrypted_challenge: str) -> bool:
+    if b64decode(decrypted_challenge) == super_secret_challenge:
+        return True
+    return False
 
 
 if __name__ == "__main__":
