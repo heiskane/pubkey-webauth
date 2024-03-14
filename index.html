@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- <link href="css/style.css" rel="stylesheet" /> -->
   </head>
-  <body></body>
+  <body>
+    <button type="" onclick="doAuth()">auth</button>
+  </body>
   <script>
     const priv_key = `-----BEGIN PRIVATE KEY-----
 MIIG/QIBADANBgkqhkiG9w0BAQEFAASCBucwggbjAgEAAoIBgQCtNj77WyLhBmQa
@@ -69,41 +71,43 @@ YaOaEMGvnzGghbDiIvkWL/c=
     }
 
     function ab2str(buf) {
-      let asdf = String.fromCharCode.apply(null, new Uint8Array(buf));
-      console.log("hello?", asdf);
-      return asdf
+      return String.fromCharCode.apply(null, new Uint8Array(buf));
     }
 
-    window.crypto.subtle
-      .importKey(
+    async function doAuth() {
+      let key = await window.crypto.subtle.importKey(
         "pkcs8",
         getPkcs8(priv_key),
         {
-          // name: "RSA-PSS",
           name: "RSA-OAEP",
           hash: "SHA-256",
         },
         true,
         ["decrypt"],
-      )
-      .then((key) => {
-        console.log(key);
-        fetch("http://localhost:5000/challenge")
-          .then((resp) => {
-            return resp.json();
-          })
-          .then((data) => {
-            console.log("data", data);
-            console.log("decoded", atob(data));
-            crypto.subtle.decrypt(
-              { name: "RSA-OAEP" },
-              key,
-              str2ab(atob(data)),
-            ).then((asdf) => {
-                console.log(ab2str(asdf));
-                // use decrypted challenge to login
-            });
-          });
+      );
+
+      let challenge = await fetch("http://localhost:5000/challenge")
+        .then((resp) => {
+          return resp.json();
+        })
+        .then((data) => {
+          return str2ab(atob(data));
+        });
+
+      let decrypted_challenge = await crypto.subtle.decrypt(
+        { name: "RSA-OAEP" },
+        key,
+        challenge,
+      );
+
+      console.log("decrypted challenge:", ab2str(decrypted_challenge));
+
+      fetch("http://localhost:5000/auth", {
+        method: "POST",
+        body: `decrypted_challenge=${decrypted_challenge}`,
+      }).then((resp) => {
+        console.log(resp.body);
       });
+    }
   </script>
 </html>
