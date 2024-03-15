@@ -10,6 +10,8 @@ python = "^3.10"
 fastapi = "^0.110.0"
 uvicorn = "^0.28.0"
 cryptography = "^42.0.5"
+sqlalchemy = "^2.0.28"
+uuid6 = "^2024.1.12"
 
 
 [build-system]

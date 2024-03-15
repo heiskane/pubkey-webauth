@@ -1,10 +1,14 @@
-from base64 import b64encode, b64decode
+from base64 import b64decode, b64encode
+from uuid import UUID
 
+import uuid6
 import uvicorn
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 app = FastAPI()
 
@@ -15,6 +19,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class Base(DeclarativeBase):
+    ...
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid6.uuid7)
+    name: Mapped[str]
+    pubkey: Mapped[str]
+    challenge: Mapped[str]
+
+
+engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
+Base.metadata.create_all(engine)
+
+# TODO: create test data
 
 super_secret_challenge = b"potato is not a tomato but a potato indeed"
 
