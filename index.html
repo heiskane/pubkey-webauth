@@ -86,7 +86,9 @@ YaOaEMGvnzGghbDiIvkWL/c=
         ["decrypt"],
       );
 
-      let challenge = await fetch("http://localhost:5000/challenge")
+      let challenge = await fetch(
+        "http://localhost:5000/auth/018e4b5d-9d6b-7288-bbbe-0c81e76a6a11/challenge",
+      )
         .then((resp) => {
           return resp.json();
         })
@@ -100,14 +102,23 @@ YaOaEMGvnzGghbDiIvkWL/c=
         challenge,
       );
 
-      console.log("decrypted challenge:", ab2str(decrypted_challenge));
+      console.log("decrypted challenge:", btoa(ab2str(decrypted_challenge)));
 
-      fetch("http://localhost:5000/auth", {
+      fetch("http://localhost:5000/auth/018e4b5d-9d6b-7288-bbbe-0c81e76a6a11", {
         method: "POST",
-        body: `decrypted_challenge=${decrypted_challenge}`,
-      }).then((resp) => {
-        console.log(resp.body);
-      });
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          decrypted_challenge: btoa(ab2str(decrypted_challenge)),
+        }),
+      })
+        .then((resp) => {
+          return resp.json();
+        })
+        .then((data) => {
+          console.log(data);
+        });
     }
   </script>
 </html>
