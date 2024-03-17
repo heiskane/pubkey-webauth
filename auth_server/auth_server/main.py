@@ -90,7 +90,7 @@ async def send_challenge(
     session.add(user)
     session.commit()
 
-    public_key = serialization.load_ssh_public_key(raw_pub_key)
+    public_key = serialization.load_ssh_public_key(user.pubkey)
     assert isinstance(public_key, rsa.RSAPublicKey)
 
     encrypted_challenge = public_key.encrypt(
