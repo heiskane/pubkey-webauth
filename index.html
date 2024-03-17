@@ -7,52 +7,27 @@
     <!-- <link href="css/style.css" rel="stylesheet" /> -->
   </head>
   <body>
+    <input type="file" name="inputfile" id="inputfile" />
+    <br />
     <button type="" onclick="doAuth()">auth</button>
   </body>
   <script>
-    const priv_key = `-----BEGIN PRIVATE KEY-----
-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
-YaOaEMGvnzGghbDiIvkWL/c=
------END PRIVATE KEY-----`;
+    var priv_key = null;
+
+    document
+      .getElementById("inputfile")
+      .addEventListener("change", function () {
+        let fr = new FileReader();
+        fr.onload = function () {
+          // document.getElementById("output").textContent = fr.result;
+          priv_key = fr.result;
+        };
+
+        fr.readAsText(this.files[0]);
+      });
 
     function getPkcs8(spkiPem) {
-      let pemContents = priv_key.split("\n").slice(1, -1).join("");
+      let pemContents = priv_key.split("\n").slice(1, -2).join("");
       let decoded_key = atob(pemContents);
       return str2ab(decoded_key);
     }
@@ -75,6 +50,11 @@ YaOaEMGvnzGghbDiIvkWL/c=
     }
 
     async function doAuth() {
+      if (priv_key === null) {
+        alert("private key missing");
+        return;
+      }
+
       let key = await window.crypto.subtle.importKey(
         "pkcs8",
         getPkcs8(priv_key),
