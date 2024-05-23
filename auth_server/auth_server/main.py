@@ -28,9 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-with open("test.pub", "rb") as key_file:
-    raw_pub_key = key_file.read()
-
 
 class Base(DeclarativeBase): ...
 
@@ -72,18 +69,6 @@ def get_db_session() -> Session:
         session.close()
 
 
-with sessionfactory() as session:
-    session.add(
-        User(
-            id=UUID("018e4b5d-9d6b-7288-bbbe-0c81e76a6a11"),
-            name="bob",
-            pubkey=raw_pub_key,
-            challenge=secrets.token_bytes(128),
-        )
-    )
-    session.commit()
-
-
 @app.post("/users/register")
 async def register_user(
     user_register: UserRegister,
@@ -120,7 +105,6 @@ async def register_user(
     return db_user.id
 
 
-# TODO: take user email instead
 @app.get("/auth/{username}/challenge")
 async def send_challenge(
     username: str,
@@ -159,9 +143,10 @@ async def send_challenge(
 async def auth(
     username: str,
     auth_request: AuthRequest,
+    db_session: Session = Depends(get_db_session),
 ) -> bool:
     stmt = select(User).where(User.name == username)
-    user = session.execute(stmt).scalar_one_or_none()
+    user = db_session.execute(stmt).scalar_one_or_none()
 
     if user is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
