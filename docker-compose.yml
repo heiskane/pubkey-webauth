@@ -16,5 +16,11 @@ services:
       - 127.0.0.1:8000:80
     volumes:
       - ./frontend:/usr/share/nginx/html
+  redis:
+    image: redis:7.2.5
+  postgres:
+    image: postgres:16.3
+    environment:
+      POSTGRES_PASSWORD: postgres
 volumes:
   auth_server:

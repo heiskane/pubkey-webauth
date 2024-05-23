@@ -4,6 +4,7 @@ COPY auth_server/ ./auth_server
 
 WORKDIR /auth_server
 
+# TODO: multistage build
 COPY pyproject.toml poetry.lock ./
 RUN pip install poetry 
 RUN poetry config virtualenvs.create false

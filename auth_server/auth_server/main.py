@@ -1,18 +1,21 @@
 import secrets
 from base64 import b64decode, b64encode
-from typing import Optional
-from uuid import UUID
+from typing import Annotated, Any, Optional
+from uuid import UUID, uuid4
 
+import redis
 import uuid6
 import uvicorn
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from redis.client import Redis
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from starlette.status import (
+    HTTP_401_UNAUTHORIZED,
     HTTP_404_NOT_FOUND,
     HTTP_409_CONFLICT,
     HTTP_422_UNPROCESSABLE_ENTITY,
@@ -22,7 +25,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,7 +56,9 @@ class AuthRequest(BaseModel):
     decrypted_challenge: str
 
 
-engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
+# engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
+# TODO: async postgres?
+engine = create_engine("postgresql://postgres:postgres@postgres/postgres", echo=True)
 Base.metadata.create_all(engine)
 
 sessionfactory = sessionmaker(engine)
@@ -67,6 +72,44 @@ def get_db_session() -> Session:
     finally:
         session.commit()
         session.close()
+
+
+def get_redis_client() -> Redis:
+    return redis.Redis(
+        host="redis",
+        port=6379,
+        decode_responses=True,
+    )
+
+
+def require_auth(
+    auth_token: Annotated[str | None, Cookie()] = None,
+    redis_client: Redis = Depends(get_redis_client),
+    db_session: Session = Depends(get_db_session),
+) -> User:
+    if auth_token is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
+
+    user_id = redis_client.get(auth_token)
+
+    if user_id is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
+
+    assert isinstance(user_id, str)
+    user = db_session.execute(
+        select(User).where(User.id == UUID(user_id))
+    ).scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
+
+    return user
+
+
+@app.get("/test_auth")
+async def test_auth(user: User = Depends(require_auth)) -> Any:
+    print("user:", user.id, user.name)
+    return None
 
 
 @app.post("/users/register")
@@ -141,10 +184,12 @@ async def send_challenge(
 
 @app.post("/auth/{username}")
 async def auth(
+    response: Response,
     username: str,
     auth_request: AuthRequest,
     db_session: Session = Depends(get_db_session),
-) -> bool:
+    redis_client: Redis = Depends(get_redis_client),
+) -> str:
     stmt = select(User).where(User.name == username)
     user = db_session.execute(stmt).scalar_one_or_none()
 
@@ -152,9 +197,14 @@ async def auth(
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
 
     if b64decode(auth_request.decrypted_challenge) == user.challenge:
-        return True
+        auth_token = uuid4()
 
-    return False
+        # TODO: configure TTL somewhere else
+        redis_client.set(auth_token.hex, str(user.id), ex=3600)
+        response.set_cookie("auth_token", auth_token.hex, secure=False, max_age=3600)
+        return auth_token.hex
+
+    raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
 
 
 if __name__ == "__main__":

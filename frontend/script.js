@@ -2,6 +2,8 @@ window.__PUBKEY_WEBAUTH__ = {};
 window.__PUBKEY_WEBAUTH__.backend_url = "http://localhost:8001";
 window.__PUBKEY_WEBAUTH__.priv_key = null;
 
+document.getElementById("test-auth").addEventListener("click", test_auth);
+
 document.getElementById("private_key").addEventListener("change", function () {
   let fr = new FileReader();
   fr.onload = async function () {
@@ -143,6 +145,7 @@ async function solveAuthChallenge(user_id, decrypted_challenge) {
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify({
       decrypted_challenge: btoa(ab2str(decrypted_challenge)),
     }),
@@ -177,4 +180,10 @@ async function registerUser(username, pubkey) {
     .then((data) => {
       console.log("userRegister resp:", data);
     });
+}
+
+async function test_auth() {
+  await fetch(`${window.__PUBKEY_WEBAUTH__.backend_url}/test_auth`, {
+    credentials: "include",
+  });
 }
