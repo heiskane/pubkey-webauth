@@ -7,9 +7,20 @@
     <!-- <link href="css/style.css" rel="stylesheet" /> -->
   </head>
   <body>
-    <input type="file" name="inputfile" id="inputfile" />
+    <form id="user-register-form">
+      <input type="file" name="inputfile" id="public_key" required />
+      <br />
+      <input type="text" name="username" required />
+      <button type="submit">register</button>
+    </form>
     <br />
-    <button id="do-auth-button">auth</button>
+    <br />
+    <form id="auth-form">
+      <input type="file" name="inputfile" id="private_key" required />
+      <br />
+      <input type="text" name="username" required />
+      <button type="submit">auth</button>
+    </form>
     <script src="script.js"></script>
   </body>
 </html>

@@ -1,0 +1,20 @@
+version: "3"
+services:
+  auth-server:
+    build:
+      context: ./auth_server
+      dockerfile: Dockerfile
+    ports:
+      - 127.0.0.1:8001:8001
+    volumes:
+      - ./auth_server:/auth_server
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - 127.0.0.1:8000:80
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+volumes:
+  auth_server:
