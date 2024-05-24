@@ -1,6 +1,6 @@
 import secrets
 from base64 import b64decode, b64encode
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 import redis
@@ -20,6 +20,8 @@ from starlette.status import (
     HTTP_409_CONFLICT,
     HTTP_422_UNPROCESSABLE_ENTITY,
 )
+
+from auth_server.settings import settings
 
 app = FastAPI()
 
@@ -41,7 +43,6 @@ class User(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid6.uuid7)
     name: Mapped[str] = mapped_column(unique=True)
     pubkey: Mapped[bytes]
-    challenge: Mapped[Optional[bytes]]
 
 
 # TODO: keys table for multiple pubkeys
@@ -75,11 +76,7 @@ def get_db_session() -> Session:
 
 
 def get_redis_client() -> Redis:
-    return redis.Redis(
-        host="redis",
-        port=6379,
-        decode_responses=True,
-    )
+    return redis.Redis(host="redis", port=6379)
 
 
 def require_auth(
@@ -90,14 +87,14 @@ def require_auth(
     if auth_token is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
 
-    user_id = redis_client.get(auth_token)
+    user_id = redis_client.get(f"user:{auth_token}:auth_token")
 
     if user_id is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
 
-    assert isinstance(user_id, str)
+    assert isinstance(user_id, bytes)
     user = db_session.execute(
-        select(User).where(User.id == UUID(user_id))
+        select(User).where(User.id == UUID(user_id.decode()))
     ).scalar_one_or_none()
 
     if user is None:
@@ -125,7 +122,6 @@ async def register_user(
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail="username taken")
 
     try:
-        print(user_register.pubkey)
         pubkey = serialization.load_ssh_public_key(user_register.pubkey)
         if not isinstance(pubkey, rsa.RSAPublicKey):
             raise HTTPException(
@@ -152,6 +148,7 @@ async def register_user(
 async def send_challenge(
     username: str,
     session: Session = Depends(get_db_session),
+    redis_client: Redis = Depends(get_redis_client),
 ) -> str:
     stmt = select(User).where(User.name == username)
     user = session.execute(stmt).scalar_one_or_none()
@@ -161,9 +158,11 @@ async def send_challenge(
 
     challenge = secrets.token_bytes(128)
 
-    user.challenge = challenge
-    session.add(user)
-    session.commit()
+    redis_client.set(
+        f"user:{user.id}:challenge",
+        challenge,
+        ex=settings.auth_challenge_ttl_seconds,
+    )
 
     public_key = serialization.load_ssh_public_key(user.pubkey)
     assert isinstance(public_key, rsa.RSAPublicKey)
@@ -196,12 +195,21 @@ async def auth(
     if user is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
 
-    if b64decode(auth_request.decrypted_challenge) == user.challenge:
+    challenge = redis_client.get(f"user:{user.id}:challenge")
+    if b64decode(auth_request.decrypted_challenge) == challenge:
         auth_token = uuid4()
 
-        # TODO: configure TTL somewhere else
-        redis_client.set(auth_token.hex, str(user.id), ex=3600)
-        response.set_cookie("auth_token", auth_token.hex, secure=False, max_age=3600)
+        redis_client.set(
+            f"user:{auth_token.hex}:auth_token",
+            str(user.id),
+            ex=settings.auth_token_ttl_seconds,
+        )
+        response.set_cookie(
+            "auth_token",
+            auth_token.hex,
+            secure=False,
+            max_age=settings.auth_token_ttl_seconds,
+        )
         return auth_token.hex
 
     raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
