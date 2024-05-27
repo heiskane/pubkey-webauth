@@ -204,6 +204,10 @@ async def auth(
             str(user.id),
             ex=settings.auth_token_ttl_seconds,
         )
+
+        # delete used challenge
+        redis_client.delete(f"user:{user.id}:challenge")
+
         response.set_cookie(
             "auth_token",
             auth_token.hex,
