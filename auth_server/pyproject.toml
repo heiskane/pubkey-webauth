@@ -14,8 +14,8 @@ cryptography = "^42.0.5"
 sqlalchemy = "^2.0.28"
 uuid6 = "^2024.1.12"
 redis = "^5.0.4"
-psycopg2 = "^2.9.9"
 pydantic-settings = "^2.2.1"
+asyncpg = "^0.29.0"
 
 
 [build-system]

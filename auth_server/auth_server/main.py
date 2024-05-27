@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from redis.client import Redis
 from sqlalchemy import create_engine, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from starlette.status import (
     HTTP_401_UNAUTHORIZED,
@@ -57,35 +58,35 @@ class AuthRequest(BaseModel):
     decrypted_challenge: str
 
 
-# engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
-# TODO: async postgres?
-engine = create_engine(
-    "postgresql://postgres:postgres@postgres/postgres",
+engine = create_async_engine(
+    "postgresql+asyncpg://postgres:postgres@postgres/postgres",
     echo=settings.db_echo,
 )
-Base.metadata.create_all(engine)
 
-sessionfactory = sessionmaker(engine)
+# TODO: create tables in sync
+# Base.metadata.create_all(engine)
+
+sessionfactory = async_sessionmaker(engine)
 
 
-def get_db_session() -> Session:
+async def get_db_session() -> AsyncSession:
     session = sessionfactory()
 
     try:
         return session
     finally:
-        session.commit()
-        session.close()
+        await session.commit()
+        await session.close()
 
 
 def get_redis_client() -> Redis:
     return redis.Redis(host="redis", port=6379)
 
 
-def require_auth(
+async def require_auth(
     auth_token: Annotated[str | None, Cookie()] = None,
     redis_client: Redis = Depends(get_redis_client),
-    db_session: Session = Depends(get_db_session),
+    db_session: AsyncSession = Depends(get_db_session),
 ) -> User:
     if auth_token is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
@@ -96,8 +97,8 @@ def require_auth(
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
 
     assert isinstance(user_id, bytes)
-    user = db_session.execute(
-        select(User).where(User.id == UUID(bytes=user_id))
+    user = (
+        await db_session.execute(select(User).where(User.id == UUID(bytes=user_id)))
     ).scalar_one_or_none()
 
     if user is None:
@@ -115,10 +116,12 @@ async def test_auth(user: User = Depends(require_auth)) -> Any:
 @app.post("/users/register")
 async def register_user(
     user_register: UserRegister,
-    db_session: Session = Depends(get_db_session),
+    db_session: AsyncSession = Depends(get_db_session),
 ) -> UUID:
-    user = db_session.execute(
-        select(User).where(User.name == user_register.username)
+    user = (
+        await db_session.execute(
+            select(User).where(User.name == user_register.username)
+        )
     ).scalar_one_or_none()
 
     if user is not None:
@@ -142,19 +145,19 @@ async def register_user(
     )
 
     db_session.add(db_user)
-    db_session.commit()
-    db_session.refresh(db_user)
+    await db_session.commit()
+    await db_session.refresh(db_user)
     return db_user.id
 
 
 @app.get("/auth/{username}/challenge")
 async def send_challenge(
     username: str,
-    session: Session = Depends(get_db_session),
+    db_session: AsyncSession = Depends(get_db_session),
     redis_client: Redis = Depends(get_redis_client),
 ) -> str:
     stmt = select(User).where(User.name == username)
-    user = session.execute(stmt).scalar_one_or_none()
+    user = (await db_session.execute(stmt)).scalar_one_or_none()
 
     if user is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
@@ -189,11 +192,11 @@ async def auth(
     response: Response,
     username: str,
     auth_request: AuthRequest,
-    db_session: Session = Depends(get_db_session),
+    db_session: AsyncSession = Depends(get_db_session),
     redis_client: Redis = Depends(get_redis_client),
 ) -> str:
     stmt = select(User).where(User.name == username)
-    user = db_session.execute(stmt).scalar_one_or_none()
+    user = (await db_session.execute(stmt)).scalar_one_or_none()
 
     if user is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
