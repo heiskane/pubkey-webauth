@@ -47,9 +47,6 @@ class User(Base):
     pubkey: Mapped[bytes]
 
 
-# TODO: keys table for multiple pubkeys
-
-
 class UserRegister(BaseModel):
     username: str
     pubkey: bytes
