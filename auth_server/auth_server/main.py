@@ -12,9 +12,9 @@ from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from redis.client import Redis
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from starlette.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_404_NOT_FOUND,
@@ -58,14 +58,7 @@ class AuthRequest(BaseModel):
     decrypted_challenge: str
 
 
-engine = create_async_engine(
-    "postgresql+asyncpg://postgres:postgres@postgres/postgres",
-    echo=settings.db_echo,
-)
-
-# TODO: create tables in sync
-# Base.metadata.create_all(engine)
-
+engine = create_async_engine(settings.db_url, echo=settings.db_echo)
 sessionfactory = async_sessionmaker(engine)
 
 
@@ -105,6 +98,18 @@ async def require_auth(
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
 
     return user
+
+
+@app.get("/create_database")
+async def create_database() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+@app.get("/drop_database")
+async def drop_database() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
 @app.get("/test_auth")
