@@ -59,7 +59,10 @@ class AuthRequest(BaseModel):
 
 # engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
 # TODO: async postgres?
-engine = create_engine("postgresql://postgres:postgres@postgres/postgres", echo=True)
+engine = create_engine(
+    "postgresql://postgres:postgres@postgres/postgres",
+    echo=settings.db_echo,
+)
 Base.metadata.create_all(engine)
 
 sessionfactory = sessionmaker(engine)
