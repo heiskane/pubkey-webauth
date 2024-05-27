@@ -5,7 +5,6 @@ from uuid import UUID, uuid4
 
 import redis
 import uuid6
-import uvicorn
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
