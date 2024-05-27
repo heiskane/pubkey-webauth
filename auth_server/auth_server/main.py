@@ -97,7 +97,7 @@ def require_auth(
 
     assert isinstance(user_id, bytes)
     user = db_session.execute(
-        select(User).where(User.id == UUID(user_id.decode()))
+        select(User).where(User.id == UUID(bytes=user_id))
     ).scalar_one_or_none()
 
     if user is None:
@@ -204,7 +204,7 @@ async def auth(
 
         redis_client.set(
             f"user:{auth_token.hex}:auth_token",
-            str(user.id),
+            user.id.bytes,
             ex=settings.auth_token_ttl_seconds,
         )
 
