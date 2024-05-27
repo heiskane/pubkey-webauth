@@ -78,8 +78,11 @@ async def get_redis_client() -> Redis:
         await client.aclose()
 
 
+AuthCookie = Cookie(alias=settings.auth_cookie_name)
+
+
 async def require_auth(
-    auth_token: Annotated[str | None, Cookie()] = None,
+    auth_token: Annotated[str | None, AuthCookie] = None,
     redis_client: Redis = Depends(get_redis_client),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> User:
@@ -222,9 +225,9 @@ async def auth(
         await redis_client.delete(f"user:{user.id}:challenge")
 
         response.set_cookie(
-            "auth_token",
+            settings.auth_cookie_name,
             auth_token.hex,
-            secure=False,
+            secure=settings.auth_cookie_secure,
             max_age=settings.auth_token_ttl_seconds,
         )
         return auth_token.hex
