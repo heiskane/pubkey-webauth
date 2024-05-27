@@ -165,7 +165,7 @@ async def send_challenge(
     username: str,
     db_session: AsyncSession = Depends(get_db_session),
     redis_client: Redis = Depends(get_redis_client),
-) -> str:
+) -> bytes:
     stmt = select(User).where(User.name == username)
     user = (await db_session.execute(stmt)).scalar_one_or_none()
 
@@ -194,7 +194,7 @@ async def send_challenge(
         ),
     )
 
-    return b64encode(encrypted_challenge).decode()
+    return b64encode(encrypted_challenge)
 
 
 @app.post("/auth/{username}")
