@@ -88,7 +88,7 @@ async def require_auth(
     if auth_token is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
 
-    user_id = await redis_client.get(f"user:{auth_token}:auth_token")
+    user_id = await redis_client.get(f"auth_token:{auth_token}")
 
     if user_id is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
@@ -215,7 +215,7 @@ async def auth(
         auth_token = uuid4()
 
         await redis_client.set(
-            f"user:{auth_token.hex}:auth_token",
+            f"auth_token:{auth_token.hex}",
             user.id.bytes,
             ex=settings.auth_token_ttl_seconds,
         )
