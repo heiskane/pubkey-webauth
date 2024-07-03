@@ -73,6 +73,24 @@ document
   });
 
 /**
+ * Base64 encode a string in a url safe way
+ * @param {string} data
+ * @returns {string}
+ */
+function urlSafeBase64Encode(data) {
+  return btoa(data).replace(/\//g, "_").replace(/\+/g, "-");
+}
+
+/**
+ * Base64 decode a string in a url safe way
+ * @param {string} data
+ * @returns {string}
+ */
+function urlSafeBase64Decode(data) {
+  return atob(data.replace(/_/g, "/").replace(/-/g, "+"));
+}
+
+/**
  * Get the bytes from a PEM formatted private key
  * @param {string} pem
  * @returns {ArrayBuffer}
@@ -126,7 +144,7 @@ async function requestAuthChallenge(username) {
       return resp.json();
     })
     .then((data) => {
-      return str2ab(atob(data));
+      return str2ab(urlSafeBase64Decode(data));
     })
     .catch((err) => {
       console.log(err);
@@ -147,7 +165,7 @@ async function solveAuthChallenge(user_id, decrypted_challenge) {
     },
     credentials: "include",
     body: JSON.stringify({
-      decrypted_challenge: btoa(ab2str(decrypted_challenge)),
+      decrypted_challenge: urlSafeBase64Encode(ab2str(decrypted_challenge)),
     }),
   })
     .then((resp) => {

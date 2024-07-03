@@ -1,5 +1,5 @@
 import secrets
-from base64 import b64decode, b64encode
+from base64 import b64encode, urlsafe_b64decode, urlsafe_b64encode
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -193,7 +193,7 @@ async def send_challenge(
         ),
     )
 
-    return b64encode(encrypted_challenge)
+    return urlsafe_b64encode(encrypted_challenge)
 
 
 @app.post("/auth/{username}")
@@ -211,7 +211,7 @@ async def auth(
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
 
     challenge = await redis_client.get(f"user:{user.id}:challenge")
-    if b64decode(auth_request.decrypted_challenge) == challenge:
+    if urlsafe_b64decode(auth_request.decrypted_challenge) == challenge:
         auth_token = uuid4()
 
         await redis_client.set(
