@@ -1,9 +1,9 @@
 import secrets
-from base64 import b64encode, urlsafe_b64decode, urlsafe_b64encode
+from base64 import urlsafe_b64decode, urlsafe_b64encode
+from collections.abc import AsyncGenerator
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
-import redis
 import uuid6
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -35,7 +35,8 @@ app.add_middleware(
 )
 
 
-class Base(DeclarativeBase): ...
+class Base(DeclarativeBase):
+    pass
 
 
 class User(Base):
@@ -59,11 +60,11 @@ engine = create_async_engine(settings.db_url, echo=settings.db_echo)
 sessionfactory = async_sessionmaker(engine)
 
 
-async def get_db_session() -> AsyncSession:
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     session = sessionfactory()
 
     try:
-        return session
+        yield session
     finally:
         await session.commit()
         await session.close()
